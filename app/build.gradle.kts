@@ -5,6 +5,21 @@ plugins {
     kotlin("plugin.serialization")
 }
 
+fun loadEnvFile(path: String): Map<String, String> {
+    val file = File(path)
+    if (!file.exists()) return emptyMap()
+
+    return file.readLines()
+        .filter { it.isNotBlank() && !it.trim().startsWith("#") && it.contains("=") }
+        .associate {
+            val (key, value) = it.split("=", limit = 2)
+            key.trim() to value.trim()
+        }
+}
+
+val env = loadEnvFile("${rootDir}/.env")
+val apiKey = env["API_KEY"] ?: "default_api_key"
+
 android {
     namespace = "com.example.trainboard"
     compileSdk = 35
@@ -17,6 +32,8 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "API_KEY", "\"$apiKey\"")
     }
 
     buildTypes {
@@ -37,6 +54,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildFeatures.buildConfig = true
     }
 }
 
@@ -66,5 +84,4 @@ dependencies {
     implementation(libs.ktor.client.cio)
 
     implementation(libs.kotlinx.serialization.json)
-
 }

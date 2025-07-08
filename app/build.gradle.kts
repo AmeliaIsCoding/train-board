@@ -1,24 +1,15 @@
+import org.jetbrains.kotlin.konan.properties.loadProperties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
-    kotlin("plugin.serialization")
+    alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.kotlin.serialization)
 }
 
-fun loadEnvFile(path: String): Map<String, String> {
-    val file = File(path)
-    if (!file.exists()) return emptyMap()
-
-    return file.readLines()
-        .filter { it.isNotBlank() && !it.trim().startsWith("#") && it.contains("=") }
-        .associate {
-            val (key, value) = it.split("=", limit = 2)
-            key.trim() to value.trim()
-        }
-}
-
-val env = loadEnvFile("${rootDir}/.env")
-val apiKey = env["API_KEY"] ?: "default_api_key"
+val propertyFile = loadProperties("local.properties")
+val apiKey = propertyFile.getProperty("trainboard.api_key")
+    ?: throw IllegalArgumentException("API_KEY not found in local.properties")
 
 android {
     namespace = "com.example.trainboard"
@@ -32,7 +23,6 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
         buildConfigField("String", "API_KEY", "\"$apiKey\"")
     }
 
@@ -45,13 +35,12 @@ android {
             )
         }
     }
+
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_23
+        targetCompatibility = JavaVersion.VERSION_23
     }
-    kotlinOptions {
-        jvmTarget = "11"
-    }
+
     buildFeatures {
         compose = true
         buildFeatures.buildConfig = true
@@ -59,7 +48,6 @@ android {
 }
 
 dependencies {
-
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

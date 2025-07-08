@@ -50,7 +50,6 @@ fun TrainBoardTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography,
         content = content,
     )
 }

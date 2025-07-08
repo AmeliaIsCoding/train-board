@@ -1,8 +1,8 @@
 package com.example.trainboard.ui.theme
 
-import android.widget.Toast
 import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,14 +12,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -32,96 +29,59 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusEvent
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.trainboard.api.Client
 import com.example.trainboard.structures.Station
 import java.net.URI
 
-val URL_REDIRECT =
-    URI("https://www.lner.co.uk/travel-information/travelling-now/live-train-times/depart/")
-
-object Padding {
-    val Small = 8.dp
-
-    val Medium = 16.dp
-
-    val Large = 32.dp
-}
-
-val Colour: ColorScheme
-    @Composable get() = MaterialTheme.colorScheme
-
-val Typography: androidx.compose.material3.Typography
-    @Composable get() = MaterialTheme.typography
+private val URL_REDIRECT = URI(
+    "https://www.lner.co.uk/" +
+        "travel-information/travelling-now/live-train-times/depart/",
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RootView(modifier: Modifier = Modifier) {
-    var stationFrom by remember { mutableStateOf<Station?>(null) }
-    var stationTo by remember { mutableStateOf<Station?>(null) }
+    var fromStation by remember { mutableStateOf<Station?>(null) }
+    var toStation by remember { mutableStateOf<Station?>(null) }
     val uriHandler = LocalUriHandler.current
+    val focusManager = LocalFocusManager.current
 
     Box(
-        modifier = modifier.padding(Padding.Large),
+        modifier = modifier
+            .padding(Padding.Large)
+            .pointerInput(Unit) {
+                detectTapGestures { focusManager.clearFocus() }
+            },
         contentAlignment = Alignment.Center,
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(Padding.Medium)) {
-            StationSelect(label = "From") { stationFrom = it }
-            StationSelect(label = "To") { stationTo = it }
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(4.dp))
-                    .fillMaxWidth(),
+        Column(verticalArrangement = Arrangement.spacedBy(Padding.Small)) {
+            StationSelect(label = "From") { fromStation = it }
+            StationSelect(label = "To") { toStation = it }
+
+            TextButton(
+                enabled = fromStation != null && toStation != null,
+                onClick = { handleSearch(fromStation, toStation, uriHandler) },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Colour.primaryContainer,
+                    contentColor = Colour.onPrimaryContainer,
+                ),
             ) {
-                val isButtonEnabled = stationFrom != null && stationTo != null
-                val context = LocalContext.current
-                TextButton(
-                    enabled = isButtonEnabled,
-                    onClick = {
-                        requireNotNull(stationFrom) { "Origin station not selected!" }
-                        requireNotNull(stationFrom?.crs) { "Origin station not valid!" }
-                        requireNotNull(stationTo) { "Destination station not selected!" }
-                        requireNotNull(stationTo?.crs) { "Destination station not valid!" }
-                        uriHandler.openUri(
-                            URL_REDIRECT
-                                .resolve("${stationFrom?.crs}/")
-                                .resolve(stationTo?.crs)
-                                .toString(),
-                        )
-                    },
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Colour.primaryContainer,
-                        contentColor = Colour.onPrimaryContainer,
-                    ),
-                ) {
-                    Text(
-                        text = "Search",
-                        style = Typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-                if (!isButtonEnabled) {
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .clickable {
-                                Toast
-                                    .makeText(
-                                        context,
-                                        "Please select both stations first.",
-                                        Toast.LENGTH_SHORT,
-                                    ).show()
-                            },
-                    )
-                }
+                Text(
+                    text = "Search",
+                    style = Typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
             }
         }
     }
@@ -134,22 +94,45 @@ fun StationSelect(
     onStationChange: (Station) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    var selectedStation by remember { mutableStateOf<Station?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
     val stations by Client.stations.collectAsState()
+    val focusRequester = remember { FocusRequester() }
+
+    val filteredStations = remember(searchQuery, stations) {
+        if (searchQuery.isBlank()) {
+            stations
+        } else {
+            stations.filter { it.name.contains(searchQuery, ignoreCase = true) }
+        }
+    }
 
     ExposedDropdownMenuBox(
         expanded = expanded,
-        onExpandedChange = { expanded = it },
+        onExpandedChange = {
+            expanded = it
+            focusRequester.requestFocus()
+        },
         modifier = Modifier.fillMaxWidth(),
     ) {
         OutlinedTextField(
-            value = selectedStation?.name ?: "Select a station",
-            onValueChange = { },
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
             modifier = Modifier
-                .clickable { expanded = !expanded }
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                .fillMaxWidth(),
-            readOnly = true,
+                .focusRequester(focusRequester)
+                .menuAnchor(MenuAnchorType.PrimaryEditable)
+                .fillMaxWidth()
+                .onFocusEvent {
+                    if (it.hasFocus) return@onFocusEvent
+
+                    filteredStations
+                        .firstOrNull()
+                        ?.takeIf { station -> station.name.lowercase() == searchQuery.lowercase() }
+                        ?.let { station ->
+                            onStationChange(station)
+                            searchQuery = station.name
+                            expanded = false
+                        }
+                },
             label = { Text(label) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
             singleLine = true,
@@ -159,25 +142,52 @@ fun StationSelect(
             expanded = expanded,
             onDismissRequest = { expanded = false },
             modifier = Modifier
-                .animateContentSize(),
+                .animateContentSize()
+                .focusable(false),
         ) {
             LazyColumn(
                 Modifier
-                    .width(
-                        LocalConfiguration.current.screenWidthDp.dp - Padding.Large * 2,
-                    ).height(300.dp),
+                    .width(LocalConfiguration.current.screenWidthDp.dp - Padding.Large * 2)
+                    .height(300.dp),
             ) {
-                items(stations.toList()) { station ->
+                items(filteredStations.toList()) { station ->
                     DropdownMenuItem(
                         text = { Text(station.name) },
                         onClick = {
-                            selectedStation = station
+                            searchQuery = station.name
                             onStationChange(station)
                             expanded = false
                         },
                     )
                 }
+
+                if (filteredStations.isEmpty()) {
+                    item {
+                        DropdownMenuItem(
+                            text = { Text("No results") },
+                            onClick = {},
+                            enabled = false,
+                        )
+                    }
+                }
             }
         }
     }
+}
+
+private fun handleSearch(
+    fromStation: Station?,
+    toStation: Station?,
+    uriHandler: UriHandler,
+) {
+    requireNotNull(fromStation) { "Origin station not selected!" }
+    requireNotNull(fromStation.crs) { "Origin station not valid!" }
+    requireNotNull(toStation) { "Destination station not selected!" }
+    requireNotNull(toStation.crs) { "Destination station not valid!" }
+    uriHandler.openUri(
+        URL_REDIRECT
+            .resolve("${fromStation.crs}/")
+            .resolve("${toStation.crs}/")
+            .toString(),
+    )
 }

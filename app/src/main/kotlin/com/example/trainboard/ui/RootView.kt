@@ -1,12 +1,17 @@
 package com.example.trainboard.ui.theme
 
+import android.widget.Toast
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ColorScheme
@@ -28,6 +33,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -66,34 +73,55 @@ fun RootView(modifier: Modifier = Modifier) {
         Column(verticalArrangement = Arrangement.spacedBy(Padding.Medium)) {
             StationSelect(label = "From") { stationFrom = it }
             StationSelect(label = "To") { stationTo = it }
-
-            TextButton(
-                enabled = stationFrom != null && stationTo != null,
-                onClick = {
-                    requireNotNull(stationFrom) { "Origin station not selected!" }
-                    requireNotNull(stationFrom?.crs) { "Origin station not valid!" }
-                    requireNotNull(stationTo) { "Destination station not selected!" }
-                    requireNotNull(stationTo?.crs) { "Destination station not valid!" }
-                    uriHandler.openUri(
-                        URL_REDIRECT
-                            .resolve("${stationFrom?.crs}/")
-                            .resolve(stationTo?.crs)
-                            .toString(),
-                    )
-                },
+            Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(4.dp))
                     .fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Colour.primaryContainer,
-                    contentColor = Colour.onPrimaryContainer,
-                ),
             ) {
-                Text(
-                    "Check",
-                    style = Typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
+                val isButtonEnabled = stationFrom != null && stationTo != null
+                val context = LocalContext.current
+                TextButton(
+                    enabled = isButtonEnabled,
+                    onClick = {
+                        requireNotNull(stationFrom) { "Origin station not selected!" }
+                        requireNotNull(stationFrom?.crs) { "Origin station not valid!" }
+                        requireNotNull(stationTo) { "Destination station not selected!" }
+                        requireNotNull(stationTo?.crs) { "Destination station not valid!" }
+                        uriHandler.openUri(
+                            URL_REDIRECT
+                                .resolve("${stationFrom?.crs}/")
+                                .resolve(stationTo?.crs)
+                                .toString(),
+                        )
+                    },
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Colour.primaryContainer,
+                        contentColor = Colour.onPrimaryContainer,
+                    ),
+                ) {
+                    Text(
+                        text = "Search",
+                        style = Typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                if (!isButtonEnabled) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable {
+                                Toast
+                                    .makeText(
+                                        context,
+                                        "Please select both stations first.",
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                            },
+                    )
+                }
             }
         }
     }
@@ -130,17 +158,25 @@ fun StationSelect(
         ExposedDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            modifier = Modifier.animateContentSize(),
+            modifier = Modifier
+                .animateContentSize(),
         ) {
-            stations.toList().forEach { station ->
-                DropdownMenuItem(
-                    text = { Text(station.name) },
-                    onClick = {
-                        selectedStation = station
-                        onStationChange(station)
-                        expanded = false
-                    },
-                )
+            LazyColumn(
+                Modifier
+                    .width(
+                        LocalConfiguration.current.screenWidthDp.dp - Padding.Large * 2,
+                    ).height(300.dp),
+            ) {
+                items(stations.toList()) { station ->
+                    DropdownMenuItem(
+                        text = { Text(station.name) },
+                        onClick = {
+                            selectedStation = station
+                            onStationChange(station)
+                            expanded = false
+                        },
+                    )
+                }
             }
         }
     }

@@ -8,8 +8,9 @@ plugins {
 }
 
 val propertyFile = loadProperties("local.properties")
-val apiKey = propertyFile.getProperty("trainboard.api_key")
-    ?: throw IllegalArgumentException("API_KEY not found in local.properties")
+val apiKey =
+    propertyFile.getProperty("trainboard.api_key")
+        ?: throw IllegalArgumentException("API_KEY not found in local.properties")
 
 android {
     namespace = "com.example.trainboard"
@@ -23,7 +24,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "API_KEY", "\"$apiKey\"")
+        buildConfigField("String", "API_KEY", apiKey)
     }
 
     buildTypes {
@@ -31,7 +32,7 @@ android {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
     }

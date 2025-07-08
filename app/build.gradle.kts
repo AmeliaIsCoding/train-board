@@ -18,13 +18,19 @@ android {
 
     defaultConfig {
         applicationId = "com.example.trainboard"
-        minSdk = 24
+
+        // Newer `ktor` versions require a minimum SDK of 30 - somewhere internally it uses spaces
+        // in a [SimpleName] ('use streaming syntax'), which isn't allowed prior to DEX version 040.
+        // https://stackoverflow.com/questions/75578780/com-android-tools-r8-internal-jc-space-characters-in-simplename-exception-are-n
+        // https://kotlinlang.org/docs/coding-conventions.html#names-for-test-methods
+        minSdk = 30
+
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "API_KEY", apiKey)
+        buildConfigField("String", "API_KEY", "\"$apiKey\"")
     }
 
     buildTypes {

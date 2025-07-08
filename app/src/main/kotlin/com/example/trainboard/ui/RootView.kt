@@ -28,10 +28,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.trainboard.api.Client
 import com.example.trainboard.structures.Station
+import java.net.URI
+
+val URL_REDIRECT =
+    URI("https://www.lner.co.uk/travel-information/travelling-now/live-train-times/depart/")
 
 object Padding {
     val Small = 8.dp
@@ -50,18 +55,32 @@ val Typography: androidx.compose.material3.Typography
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RootView(modifier: Modifier = Modifier) {
-    val stations = (0..9).toList()
+    var stationFrom by remember { mutableStateOf<Station?>(null) }
+    var stationTo by remember { mutableStateOf<Station?>(null) }
+    val uriHandler = LocalUriHandler.current
 
     Box(
         modifier = modifier.padding(Padding.Large),
         contentAlignment = Alignment.Center,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(Padding.Medium)) {
-            StationSelect(label = "From") { }
-            StationSelect(label = "To") { }
+            StationSelect(label = "From") { stationFrom = it }
+            StationSelect(label = "To") { stationTo = it }
 
             TextButton(
-                onClick = {},
+                enabled = stationFrom != null && stationTo != null,
+                onClick = {
+                    requireNotNull(stationFrom) { "Origin station not selected!" }
+                    requireNotNull(stationFrom?.crs) { "Origin station not valid!" }
+                    requireNotNull(stationTo) { "Destination station not selected!" }
+                    requireNotNull(stationTo?.crs) { "Destination station not valid!" }
+                    uriHandler.openUri(
+                        URL_REDIRECT
+                            .resolve("${stationFrom?.crs}/")
+                            .resolve(stationTo?.crs)
+                            .toString(),
+                    )
+                },
                 modifier = Modifier
                     .clip(RoundedCornerShape(4.dp))
                     .fillMaxWidth(),

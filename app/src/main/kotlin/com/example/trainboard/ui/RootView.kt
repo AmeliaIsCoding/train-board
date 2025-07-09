@@ -4,10 +4,11 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,6 +20,9 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -47,16 +51,28 @@ fun RootView(modifier: Modifier = Modifier) {
     var fromStation by remember { mutableStateOf<Station?>(null) }
     var toStation by remember { mutableStateOf<Station?>(null) }
     val focusManager = LocalFocusManager.current
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    Box(
+    Scaffold(
         modifier = modifier
             .padding(Padding.Large)
+            .fillMaxSize()
+            .imePadding()
             .pointerInput(Unit) {
                 detectTapGestures { focusManager.clearFocus() }
             },
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(Padding.Small)) {
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .padding(paddingValues)
+                .fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(
+                space = Padding.Small,
+                alignment = Alignment.Bottom,
+            ),
+        ) {
             StationSelect(label = "From") { fromStation = it }
             StationSelect(label = "To") { toStation = it }
 
@@ -175,6 +191,9 @@ private fun handleSearch(
     requireNotNull(fromStation.crs) { "Origin station not valid!" }
     requireNotNull(toStation) { "Destination station not selected!" }
     requireNotNull(toStation.crs) { "Destination station not valid!" }
+
+    if (fromStation == toStation) {
+    }
 
     runBlocking {
         Client.getJourneyFares(fromStation, toStation)

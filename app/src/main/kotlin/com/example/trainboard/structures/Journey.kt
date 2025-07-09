@@ -14,11 +14,10 @@ data class Journey(
     val originStation: Station,
     @Serializable(with = Station.StationSerializer::class)
     val destinationStation: Station,
-    @Contextual
-    val departureTime: Instant,
-    @Contextual
-    val arrivalTime: Instant,
+    val departureTime: @Contextual Instant,
+    val arrivalTime: @Contextual Instant,
     val status: Status,
+    val legs: List<JourneyLeg>,
     val tickets: List<Ticket>,
     val journeyDurationInMinutes: Int,
     val isFastestJourney: Boolean,

@@ -2,6 +2,7 @@ package com.example.trainboard.api
 
 import com.example.trainboard.BuildConfig
 import com.example.trainboard.structures.FareSearchResult
+import com.example.trainboard.structures.JourneyLeg
 import com.example.trainboard.structures.Station
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.modules.plus
 import java.net.URI
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
@@ -44,6 +46,8 @@ object Client {
             json(
                 Json {
                     ignoreUnknownKeys = true
+                    serializersModule += JourneyLeg.Module
+                    classDiscriminator = "type"
                 },
             )
         }
@@ -66,6 +70,7 @@ object Client {
                 parameter("inboundDateTime", null as String?)
                 parameter("numberOfChildren", 0)
                 parameter("numberOfAdults", 1)
+                parameter("maxNumberOfChanges", 5)
             }
         }.body<FareSearchResult>()
 }

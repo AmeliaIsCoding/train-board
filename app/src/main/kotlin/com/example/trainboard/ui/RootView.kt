@@ -23,6 +23,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
@@ -75,7 +76,7 @@ fun RootView(modifier: Modifier = Modifier) {
                 alignment = Alignment.Bottom,
             ),
         ) {
-            SearchResultView(searchState)
+            SearchResultView(searchState, departureStation, arrivalStation)
 
             StationDropdown(label = "From") { departureStation = it }
             StationDropdown(label = "To") { arrivalStation = it }
@@ -83,18 +84,12 @@ fun RootView(modifier: Modifier = Modifier) {
             TextButton(
                 onClick = {
                     scope.launch {
-                        if (!checkCanSearch(departureStation, arrivalStation, snackbarHostState)) {
-                            return@launch
-                        }
-
-                        focusManager.clearFocus()
-                        searchState = LoadState.Loading
-
-                        // Smart cast not possible, but contract in `checkCanSearch` hopefully adds
-                        // safety. https://kotlinlang.org/docs/typecasts.html#smart-cast-prerequisites
-                        handleSearch(departureStation!!, arrivalStation!!) {
-                            searchState = LoadState.Success(it)
-                        }
+                        onSearch(
+                            departureStation,
+                            arrivalStation,
+                            snackbarHostState,
+                            focusManager,
+                        ) { newState -> searchState = newState }
                     }
                 },
                 modifier = Modifier
@@ -112,6 +107,27 @@ fun RootView(modifier: Modifier = Modifier) {
                 )
             }
         }
+    }
+}
+
+private suspend fun onSearch(
+    departureStation: Station?,
+    arrivalStation: Station?,
+    snackbarHostState: SnackbarHostState,
+    focusManager: FocusManager,
+    callback: (LoadState<List<Journey>, String>) -> Unit,
+) {
+    if (!checkCanSearch(departureStation, arrivalStation, snackbarHostState)) {
+        return
+    }
+
+    focusManager.clearFocus()
+    callback(LoadState.Loading)
+
+    // Smart cast not possible, but contract in `checkCanSearch` hopefully adds
+    // safety. https://kotlinlang.org/docs/typecasts.html#smart-cast-prerequisites
+    handleSearch(departureStation, arrivalStation) {
+        callback(LoadState.Success(it))
     }
 }
 

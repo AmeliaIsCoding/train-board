@@ -13,12 +13,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import com.example.trainboard.structures.Journey
+import com.example.trainboard.structures.Station
 import com.example.trainboard.utilities.LoadState
 import com.example.trainboard.utilities.Padding
 import com.example.trainboard.utilities.Typography
 
 @Composable
-fun ColumnScope.SearchResultView(searchState: LoadState<List<Journey>, String>) {
+fun ColumnScope.SearchResultView(
+    searchState: LoadState<List<Journey>, String>,
+    departureStation: Station?,
+    arrivalStation: Station?,
+) {
     when (searchState) {
         LoadState.Idle -> {
             Text(
@@ -45,7 +50,7 @@ fun ColumnScope.SearchResultView(searchState: LoadState<List<Journey>, String>) 
         }
 
         is LoadState.Success -> {
-            val journeys = (searchState as LoadState.Success<List<Journey>>).data
+            val journeys = searchState.data
 
             if (journeys.isEmpty()) {
                 Text(
@@ -56,13 +61,20 @@ fun ColumnScope.SearchResultView(searchState: LoadState<List<Journey>, String>) 
 
                 return
             }
+            requireNotNull(departureStation) {
+                "Departure must not be null when displaying search results."
+            }
+            requireNotNull(arrivalStation) {
+                "Arrival must not be null when displaying search results."
+            }
 
             Text(
-                "Found ${journeys.size} journeys.",
+                "${departureStation.name} to ${arrivalStation.name}",
                 modifier = Modifier
                     .padding(Padding.Medium)
-                    .fillMaxWidth(),
-                style = Typography.titleMedium,
+                    .fillMaxWidth()
+                    .align(Alignment.CenterHorizontally),
+                style = Typography.displaySmall,
                 fontWeight = FontWeight.Bold,
             )
 

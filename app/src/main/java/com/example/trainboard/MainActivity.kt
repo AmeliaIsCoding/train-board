@@ -58,8 +58,8 @@ fun Page()
 
 
 
-    val selectedOptionTextFrom = remember { mutableStateOf("")}
-    val selectedOptionTextTo = remember { mutableStateOf("")}
+    val selectedStartStation = remember { mutableStateOf("")}
+    val selectedEndStation = remember { mutableStateOf("")}
 
     Column(
         modifier = Modifier
@@ -70,25 +70,30 @@ fun Page()
     ){
         Text("LNER", color = Color.White, fontSize = 25.sp, modifier = Modifier.padding(top = 0.dp))
         Row (){
-            SimpleExposedDropdown("From", selectedOptionTextFrom, selectedOptionTextTo)
-            SimpleExposedDropdown("To", selectedOptionTextTo, selectedOptionTextFrom)
+            SimpleExposedDropdown("From", selectedStartStation, selectedEndStation)
+            SimpleExposedDropdown("To", selectedEndStation, selectedStartStation)
 
         }
-        ButtonFromTo(selectedOptionTextFrom, selectedOptionTextTo)
+        ButtonToLNER(selectedStartStation, selectedEndStation)
     }
 
 }
+
+
+fun generateUrl(selectedStartStation: MutableState<String>, selectedEndStation: MutableState<String>): String{
+    val codeDictionary = mutableMapOf("London" to "KGX", "Edinburgh" to "EDB", "Oxford" to "OXF", "Bristol" to "BRI", "Liverpool" to "LVC")
+    return "https://www.lner.co.uk/travel-information/travelling-now/live-train-times/depart/${codeDictionary[selectedStartStation.value]}/${codeDictionary[selectedEndStation.value]}/#tab_livedepartures"
+}
 @Composable
-fun ButtonFromTo (selectedFrom: MutableState<String>, selectedTo: MutableState<String>)
+fun ButtonToLNER (selectedStartStation: MutableState<String>, selectedEndStation: MutableState<String>)
 {   val context = LocalContext.current
     val buttonText = remember { mutableStateOf("Find route") }
-    val codeDictionary = mutableMapOf("London" to "KGX", "Edinburgh" to "EDB", "Oxford" to "OXF", "Bristol" to "BRI", "Liverpool" to "LVC")
-    val url = "https://www.lner.co.uk/travel-information/travelling-now/live-train-times/depart/${codeDictionary[selectedFrom.value]}/${codeDictionary[selectedTo.value]}/#tab_livedepartures"
+    val url = generateUrl(selectedStartStation, selectedEndStation)
     Button(
 
         onClick = {
 
-            if (selectedFrom.value != "" && selectedTo.value != "")
+            if (selectedStartStation.value != "" && selectedEndStation.value != "")
             {
                 val intent = Intent(Intent.ACTION_VIEW, url.toUri())
 
@@ -152,18 +157,4 @@ fun SimpleExposedDropdown(name: String, selectedOptionText: MutableState<String>
     }
 }
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
 
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    TrainBoardTheme {
-        Greeting("Arav")
-    }
-}

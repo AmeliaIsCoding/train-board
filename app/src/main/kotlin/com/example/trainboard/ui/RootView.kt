@@ -4,6 +4,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,7 +21,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -30,6 +31,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,6 +45,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.trainboard.api.Client
 import com.example.trainboard.structures.Station
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -52,21 +56,24 @@ fun RootView(modifier: Modifier = Modifier) {
     var toStation by remember { mutableStateOf<Station?>(null) }
     val focusManager = LocalFocusManager.current
     val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
-    Scaffold(
-        modifier = modifier
+    Box(
+        Modifier
             .padding(Padding.Large)
             .fillMaxSize()
             .imePadding()
             .pointerInput(Unit) {
                 detectTapGestures { focusManager.clearFocus() }
             },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-    ) { paddingValues ->
+    ) {
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.TopCenter),
+        )
+
         Column(
-            modifier = Modifier
-                .padding(paddingValues)
-                .fillMaxSize(),
+            modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(
                 space = Padding.Small,
@@ -78,7 +85,7 @@ fun RootView(modifier: Modifier = Modifier) {
 
             TextButton(
                 enabled = fromStation != null && toStation != null,
-                onClick = { handleSearch(fromStation, toStation) },
+                onClick = { handleSearch(fromStation, toStation, scope, snackbarHostState) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Colour.primaryContainer,
@@ -186,6 +193,8 @@ fun StationSelect(
 private fun handleSearch(
     fromStation: Station?,
     toStation: Station?,
+    scope: CoroutineScope,
+    snackbarHostState: SnackbarHostState,
 ) {
     requireNotNull(fromStation) { "Origin station not selected!" }
     requireNotNull(fromStation.crs) { "Origin station not valid!" }
@@ -193,6 +202,14 @@ private fun handleSearch(
     requireNotNull(toStation.crs) { "Destination station not valid!" }
 
     if (fromStation == toStation) {
+        scope.launch {
+            snackbarHostState.showSnackbar(
+                message = "Origin and destination stations cannot be the same.",
+                actionLabel = "OK",
+                duration = SnackbarDuration.Short,
+            )
+        }
+        return
     }
 
     runBlocking {

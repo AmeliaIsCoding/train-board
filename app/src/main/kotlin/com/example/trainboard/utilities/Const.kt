@@ -1,4 +1,4 @@
-package com.example.trainboard.ui
+package com.example.trainboard.utilities
 
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme

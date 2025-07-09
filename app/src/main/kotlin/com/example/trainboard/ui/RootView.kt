@@ -30,7 +30,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -48,8 +47,15 @@ import androidx.compose.ui.unit.dp
 import com.example.trainboard.api.Client
 import com.example.trainboard.structures.Journey
 import com.example.trainboard.structures.Station
-import kotlinx.coroutines.CoroutineScope
+import com.example.trainboard.utilities.Colour
+import com.example.trainboard.utilities.LoadState
+import com.example.trainboard.utilities.Padding
+import com.example.trainboard.utilities.Typography
+import com.example.trainboard.utilities.applyIf
+import com.valentinilk.shimmer.shimmer
 import kotlinx.coroutines.launch
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.contract
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,8 +67,9 @@ fun RootView(modifier: Modifier = Modifier) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    val journeys = remember { mutableStateListOf<Journey>() }
-    var hasSearched by remember { mutableStateOf(false) }
+    var searchState: LoadState<List<Journey>, String> by remember {
+        mutableStateOf(LoadState.Idle)
+    }
 
     Box(
         modifier
@@ -90,26 +97,61 @@ fun RootView(modifier: Modifier = Modifier) {
                 modifier = Modifier
                     .fillMaxHeight()
                     .weight(1f),
-                verticalArrangement = Arrangement.Center,
+                verticalArrangement = Arrangement.spacedBy(
+                    space = Padding.Small,
+                    alignment = Alignment.CenterVertically,
+                ),
             ) {
-                if (journeys.isEmpty()) {
-                    item {
-                        Text(
-                            text = if (hasSearched) {
-                                "No journeys found. Please try different stations."
-                            } else {
-                                "Search for journeys between two stations."
-                            },
-                            style = Typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                        )
+                when (searchState) {
+                    LoadState.Idle -> {
+                        item {
+                            Text(
+                                text = "Search for journeys between two stations.",
+                                style = Typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
                     }
 
-                    return@LazyColumn
-                }
+                    LoadState.Loading -> {
+                        item {
+                            Text(
+                                text = "Searching for journeys...",
+                                style = Typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
 
-                items(journeys.toList()) { journey ->
-                    JourneyCard(journey)
+                    is LoadState.Error -> {
+                        item {
+                            Text(
+                                text = "An error occurred while searching for journeys.",
+                                style = Typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+
+                    is LoadState.Success -> {
+                        val journeys = (searchState as LoadState.Success<List<Journey>>).data
+
+                        if (journeys.isEmpty()) {
+                            item {
+                                Text(
+                                    text = "No journeys found. Please try different stations.",
+                                    style = Typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+
+                            return@LazyColumn
+                        }
+
+                        items(journeys) { journey ->
+                            JourneyCard(journey)
+                        }
+                    }
                 }
             }
 
@@ -117,15 +159,25 @@ fun RootView(modifier: Modifier = Modifier) {
             StationDropdown(label = "To") { arrivalStation = it }
 
             TextButton(
-                enabled = departureStation != null && arrivalStation != null,
                 onClick = {
-                    hasSearched = true
-                    handleSearch(departureStation, arrivalStation, scope, snackbarHostState) {
-                        journeys.clear()
-                        journeys.addAll(it)
+                    scope.launch {
+                        if (!checkCanSearch(departureStation, arrivalStation, snackbarHostState)) {
+                            return@launch
+                        }
+
+                        focusManager.clearFocus()
+                        searchState = LoadState.Loading
+
+                        // Smart cast not possible, but contract in `checkCanSearch` hopefully adds
+                        // safety. https://kotlinlang.org/docs/typecasts.html#smart-cast-prerequisites
+                        handleSearch(departureStation!!, arrivalStation!!) {
+                            searchState = LoadState.Success(it)
+                        }
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .applyIf(searchState is LoadState.Loading) { this.shimmer() },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Colour.primaryContainer,
                     contentColor = Colour.onPrimaryContainer,
@@ -243,33 +295,57 @@ fun StationDropdown(
     }
 }
 
-private fun handleSearch(
+@OptIn(ExperimentalContracts::class)
+private suspend fun checkCanSearch(
     fromStation: Station?,
     toStation: Station?,
-    scope: CoroutineScope,
     snackbarHostState: SnackbarHostState,
-    callback: (List<Journey>) -> Unit,
-) {
-    requireNotNull(fromStation) { "Origin station not selected!" }
-    requireNotNull(fromStation.crs) { "Origin station not valid!" }
-    requireNotNull(toStation) { "Destination station not selected!" }
-    requireNotNull(toStation.crs) { "Destination station not valid!" }
+): Boolean {
+    contract {
+        returns(true) implies (fromStation != null && toStation != null)
+    }
+
+    if (fromStation == null) {
+        snackbarHostState.showSnackbar(
+            message = "Origin station not selected or invalid.",
+            actionLabel = "OK",
+            duration = SnackbarDuration.Short,
+        )
+
+        return false
+    }
+
+    if (toStation == null) {
+        snackbarHostState.showSnackbar(
+            message = "Destination station not selected or invalid.",
+            actionLabel = "OK",
+            duration = SnackbarDuration.Short,
+        )
+
+        return false
+    }
+
+    requireNotNull(fromStation.crs) { "[Impossible] Origin station does not have a CRS." }
+    requireNotNull(toStation.crs) { "[Impossible] Destination station does not have a CRS." }
 
     if (fromStation == toStation) {
-        scope.launch {
-            snackbarHostState.showSnackbar(
-                message = "Origin and destination stations cannot be the same.",
-                actionLabel = "OK",
-                duration = SnackbarDuration.Short,
-            )
-        }
-        return
+        snackbarHostState.showSnackbar(
+            message = "Origin and destination stations cannot be the same.",
+            actionLabel = "OK",
+            duration = SnackbarDuration.Short,
+        )
+
+        return false
     }
 
-    scope.launch {
-        Client
-            .getJourneyFares(fromStation, toStation)
-            .outboundJourneys
-            .let(callback)
-    }
+    return true
 }
+
+private suspend fun handleSearch(
+    fromStation: Station,
+    toStation: Station,
+    callback: (List<Journey>) -> Unit,
+) = Client
+    .getJourneyFares(fromStation, toStation)
+    .outboundJourneys
+    .let(callback)

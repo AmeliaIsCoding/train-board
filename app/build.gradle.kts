@@ -73,11 +73,16 @@ dependencies {
 
     implementation(libs.kotlinx.coroutines.android)
 
+    // Async Web Client | https://github.com/ktorio/ktor | Apache-2.0
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.kotlinx.json)
     implementation(libs.ktor.client.cio)
 
+    // KotlinX | ... | usually Apache-2.0
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.datetime)
+
+    // Skeleton / Shimmer Animations | https://github.com/valentinilk/compose-shimmer | Apache-2.0
+    implementation(libs.shimmer)
 }

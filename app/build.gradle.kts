@@ -14,7 +14,7 @@ val apiKey =
 
 android {
     namespace = "com.example.trainboard"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.trainboard"
@@ -25,7 +25,7 @@ android {
         // https://kotlinlang.org/docs/coding-conventions.html#names-for-test-methods
         minSdk = 30
 
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -50,7 +50,7 @@ android {
 
     buildFeatures {
         compose = true
-        buildFeatures.buildConfig = true
+        buildConfig = true
     }
 }
 

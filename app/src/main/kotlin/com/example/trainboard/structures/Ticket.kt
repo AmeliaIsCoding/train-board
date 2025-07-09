@@ -40,7 +40,7 @@ data class Ticket(
         @SerialName("anytime")
         ANYTIME,
 
-        @SerialName("off_peak")
+        @SerialName("offpeak")
         OFF_PEAK,
     }
 }

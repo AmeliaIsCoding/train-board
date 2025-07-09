@@ -35,25 +35,17 @@ import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.trainboard.api.Client
 import com.example.trainboard.structures.Station
-import java.net.URI
-
-private val URL_REDIRECT = URI(
-    "https://www.lner.co.uk/" +
-        "travel-information/travelling-now/live-train-times/depart/",
-)
+import kotlinx.coroutines.runBlocking
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RootView(modifier: Modifier = Modifier) {
     var fromStation by remember { mutableStateOf<Station?>(null) }
     var toStation by remember { mutableStateOf<Station?>(null) }
-    val uriHandler = LocalUriHandler.current
     val focusManager = LocalFocusManager.current
 
     Box(
@@ -70,7 +62,7 @@ fun RootView(modifier: Modifier = Modifier) {
 
             TextButton(
                 enabled = fromStation != null && toStation != null,
-                onClick = { handleSearch(fromStation, toStation, uriHandler) },
+                onClick = { handleSearch(fromStation, toStation) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Colour.primaryContainer,
@@ -178,16 +170,13 @@ fun StationSelect(
 private fun handleSearch(
     fromStation: Station?,
     toStation: Station?,
-    uriHandler: UriHandler,
 ) {
     requireNotNull(fromStation) { "Origin station not selected!" }
     requireNotNull(fromStation.crs) { "Origin station not valid!" }
     requireNotNull(toStation) { "Destination station not selected!" }
     requireNotNull(toStation.crs) { "Destination station not valid!" }
-    uriHandler.openUri(
-        URL_REDIRECT
-            .resolve("${fromStation.crs}/")
-            .resolve("${toStation.crs}/")
-            .toString(),
-    )
+
+    runBlocking {
+        Client.getJourneyFares(fromStation, toStation)
+    }
 }
